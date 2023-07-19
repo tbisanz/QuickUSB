@@ -374,9 +374,9 @@ ssize_t qusb_async(struct kiocb *iocb, char __user *buf, size_t count, BOOL read
         kfree(pReadlen);
         return -ENOMEM;
     }
-    down_read(&current->mm->mmap_sem);
-    req->lockedPages = get_user_pages_remote(current, current->mm, (unsigned long)addr, req->numPages, 0, req->pages, NULL, NULL);
-    up_read(&current->mm->mmap_sem);
+    mmap_read_lock(current->mm);
+    req->lockedPages = get_user_pages_remote(current->mm, (unsigned long)addr, req->numPages, 0, req->pages, NULL, NULL);
+    mmap_read_unlock(current->mm);
     if (req->lockedPages != req->numPages) {
         QUSB_PRINTK(("Not all pages locked.\n"));
         

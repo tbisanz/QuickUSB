@@ -25,6 +25,7 @@ History      :
  IN THE SOFTWARE.
 
 =============================================================================*/
+#include <asm/cpufeatures.h>
 #include <linux/errno.h>
 #include <linux/io.h>
 #include <linux/uio.h>
@@ -55,6 +56,7 @@ typedef unsigned long   ULONG, DWORD;
 typedef unsigned short  USHORT, WCHAR, WORD;
 typedef void *          PVOID;
 
+#define HAVE_UNLOCKED_IOCTL
 
 #include "Version.h"
 #include "ioctl.h"
@@ -66,7 +68,6 @@ typedef void *          PVOID;
 #define MINOR_BASE      0xAB
 #define IMPLEMENT_ASYNC (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 #define QUSB_DEFAULT_TIMEOUT 1000
-
 #define QUSB_EP_BULK_IN  0x86
 #define QUSB_EP_BULK_OUT 0x02
 
@@ -226,3 +227,62 @@ extern void qusb_sg_async_wait(struct usb_sg_request *io);
 extern void qusb_sg_cancel(struct usb_sg_request *io);
 extern void qusb_sg_timedout(struct usb_sg_request *io);
 #endif
+
+
+#ifndef MMAP_LOCK_INITIALIZER
+#include <linux/mm.h>
+/* Define mmap locking API for pre-5.8 kernels. */
+
+/* This one should not be needed in a driver. */
+static inline void mmap_init_lock(struct mm_struct *mm)
+{
+       init_rwsem(&mm->mmap_sem);
+}
+
+static inline void mmap_write_lock(struct mm_struct *mm)
+{
+       down_write(&mm->mmap_sem);
+}
+
+static inline int mmap_write_lock_killable(struct mm_struct *mm)
+{
+       return down_write_killable(&mm->mmap_sem);
+}
+
+static inline bool mmap_write_trylock(struct mm_struct *mm)
+{
+       return down_write_trylock(&mm->mmap_sem) != 0;
+}
+
+static inline void mmap_write_unlock(struct mm_struct *mm)
+{
+       up_write(&mm->mmap_sem);
+}
+
+static inline void mmap_write_downgrade(struct mm_struct *mm)
+{
+       downgrade_write(&mm->mmap_sem);
+}
+
+static inline void mmap_read_lock(struct mm_struct *mm)
+{
+       down_read(&mm->mmap_sem);
+}
+
+static inline int mmap_read_lock_killable(struct mm_struct *mm)
+{
+       return down_read_killable(&mm->mmap_sem);
+}
+
+static inline bool mmap_read_trylock(struct mm_struct *mm)
+{
+       return down_read_trylock(&mm->mmap_sem) != 0;
+}
+
+static inline void mmap_read_unlock(struct mm_struct *mm)
+{
+       up_read(&mm->mmap_sem);
+}
+
+#endif /* MMAP_LOCK_INITIALIZER */
+
